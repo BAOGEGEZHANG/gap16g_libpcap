@@ -1,0 +1,6 @@
+0x1a2e7d93	nac_mem_malloc	/home/cvspub/gap16g/drv/nacmem	EXPORT_SYMBOL
+0x4f9e873a	__umoddi3	/home/cvspub/gap16g/drv/divdi3	EXPORT_SYMBOL
+0x90f98600	nac_mem_free	/home/cvspub/gap16g/drv/nacmem	EXPORT_SYMBOL
+0x22a992bf	__divdi3	/home/cvspub/gap16g/drv/divdi3	EXPORT_SYMBOL
+0x5af4b052	__moddi3	/home/cvspub/gap16g/drv/divdi3	EXPORT_SYMBOL
+0x37c3a5d7	__udivdi3	/home/cvspub/gap16g/drv/divdi3	EXPORT_SYMBOL

@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# No tunable parameters, dagmem is autoconfiguring and uses /etc/modules
+# for parameters
+#
+here=`dirname $0`
+me=`basename $0`
+module="nac"
+device="nac"
+
+pcie_module="nac"
+mem_module="nacmem"
+divdi3_module="divdi3"
+
+group="root"
+mode="777"
+
+/sbin/lsmod|grep -q '\<nac\>'
+if [ $? -eq 0 ]
+then
+	/sbin/rmmod nac||return
+fi
+
+/sbin/lsmod|grep -q '\<nacmem\>'
+if [ $? -eq 0 ]
+then
+	/sbin/rmmod nacmem||return
+fi
+
+/sbin/lsmod|grep -q '\<divdi3\>'
+if [ $? -eq 0 ]
+then
+	/sbin/rmmod divdi3||return
+fi
+
+cd $here
+
+if [ `uname -m` != 'x86_64' ]; then
+/sbin/insmod $divdi3_module.ko $* || return
+fi
+/sbin/insmod $mem_module.ko $* || return
+/sbin/insmod $pcie_module.ko $* || return
+
+major=`cat /proc/devices | awk "\\$2==\"$module\" {print \\$1}"`
+
+# Remove stale nodes and replace them, then give gid and perms
+
+#
+# The minor numbers need to be syncronized with the values in nac.c
+#
+#rm -f /dev/${device}{,mem,iom}[0-3]
+rm -f /dev/${device}0
+rm -f /dev/${device}mem0
+rm -f /dev/${device}iom0
+mknod /dev/${device}0    c $major  0
+#mknod /dev/${device}1    c $major  1
+#mknod /dev/${device}2    c $major  2
+#mknod /dev/${device}3    c $major  3
+
+mknod /dev/${device}mem0 c $major 8
+#mknod /dev/${device}mem1 c $major 9
+#mknod /dev/${device}mem2 c $major 10
+#mknod /dev/${device}mem3 c $major 11
+
+mknod /dev/${device}iom0 c $major 16
+#mknod /dev/${device}iom1 c $major 17
+#mknod /dev/${device}iom2 c $major 18
+#mknod /dev/${device}iom3 c $major 19
+
+
+ln -sf ${device}0 /dev/${device}
+chgrp $group /dev/${device}0
+chgrp $group /dev/${device}mem0
+chgrp $group /dev/${device}iom0
+#chgrp $group /dev/${device}{,mem,iom}[0-3]
+#chmod $mode  /dev/${device}{,mem,iom}[0-3]
+chmod $mode /dev/${device}0
+chmod $mode /dev/${device}mem0
+chmod $mode /dev/${device}iom0
