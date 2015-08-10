@@ -32,4 +32,6 @@
 *.dSYM/
 
 #define by me
-*.pcap
+*.3pcap
+*.in
+*.docx
