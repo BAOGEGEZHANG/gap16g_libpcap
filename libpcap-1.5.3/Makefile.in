@@ -54,7 +54,7 @@ INCLS = -I. @V_INCLS@
 DEFS = @DEFS@ @V_DEFS@
 ADDLOBJS = @ADDLOBJS@
 ADDLARCHIVEOBJS = @ADDLARCHIVEOBJS@
-LIBS = @LIBS@
+LIBS = @LIBS@ gap16g/lib/libnacapi.a 
 CFLAGS = @CFLAGS@
 LDFLAGS = @LDFLAGS@
 DYEXT = @DYEXT@
@@ -87,7 +87,7 @@ YACC = @V_YACC@
 
 PSRC =	pcap-@V_PCAP@.c @USB_SRC@ @BT_SRC@ @CAN_SRC@ @NETFILTER_SRC@ @CANUSB_SRC@ @DBUS_SRC@
 FSRC =  fad-@V_FINDALLDEVS@.c
-SSRC =  @SSRC@
+SSRC =  pcap-gap16g.c
 CSRC =	pcap.c inet.c gencode.c optimize.c nametoaddr.c etherent.c \
 	savefile.c sf-pcap.c sf-pcap-ng.c pcap-common.c \
 	bpf_image.c bpf_dump.c
@@ -359,6 +359,7 @@ EXTRA_DIST = \
 all: libpcap.a shared pcap-config
 
 libpcap.a: $(OBJ)
+	make -C gap16g/lib/
 	@rm -f $@
 	$(AR) rc $@ $(OBJ) $(ADDLARCHIVEOBJS)
 	$(RANLIB) $@
@@ -715,6 +716,7 @@ uninstall-shared-shareda:
 uninstall-shared-none:
 
 clean:
+	make -C gap16g/lib clean
 	rm -f $(CLEANFILES)
 
 distclean: clean

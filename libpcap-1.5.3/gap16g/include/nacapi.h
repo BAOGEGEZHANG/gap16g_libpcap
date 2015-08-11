@@ -28,7 +28,7 @@
 #include "nac_stream.h"
 
 
-#define NUM_STREAM		8
+#define NUM_STREAM		1
 
 #define KB 								(1*1024)
 #define MB 								(1*1024*1024)

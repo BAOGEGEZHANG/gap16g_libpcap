@@ -1,5 +1,7 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
+#define HAVE_GAP16G_API
+
 /* Enable optimizer debugging */
 #undef BDEBUG
 

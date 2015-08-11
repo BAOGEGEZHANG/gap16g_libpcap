@@ -113,6 +113,29 @@ typedef Adapter *(*getadapter_op_t)(pcap_t *);
 #endif
 typedef void	(*cleanup_op_t)(pcap_t *);
 
+
+#ifdef HAVE_GAP16G_API
+typedef struct md{
+	unsigned char name[20];
+	int qnf_stream;
+	int start;
+	int attach;
+
+	unsigned char *qnf_mem_top;
+	unsigned char *qnf_mem_bottom;
+	
+	struct pcap_stat stat;
+	int use_bpf;			/* use kernel filter*/
+	unsigned int mindata;
+	#ifndef WIN32
+	struct timeval maxwait;
+	struct timeval poll;
+	#endif
+}md_t;
+#endif
+
+
+
 /*
  * We put all the stuff used in the read code path at the beginning,
  * to try to keep it together in the same cache line or lines.
@@ -172,6 +195,7 @@ struct pcap {
 	int oldstyle;		/* if we're opening with pcap_open_live() */
 
 	struct pcap_opt opt;
+  struct md md;
 
 	/*
 	 * Place holder for pcap_next().

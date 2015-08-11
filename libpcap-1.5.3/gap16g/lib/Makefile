@@ -7,6 +7,7 @@ INC_DIR = -I../include
 APP_FLAGS = -DLinux \
 		-Dplatform_64 \
 		$(INC_DIR) \
+		-fPIC
 								 
 libnacapi.a: ../include/nacapi.h
 	$(CC) -c nacapi.c $(APP_FLAGS) -o nacapi.o

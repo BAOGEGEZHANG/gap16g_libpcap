@@ -200,6 +200,7 @@ nac_open(struct inode *inode, struct file *file)
 static int
 nac_release(struct inode *inode, struct file * file)
 {
+#if 0
 	nac_softc_t	*sc = (nac_softc_t *)file->private_data;
 	int		c;
 
@@ -210,12 +211,11 @@ nac_release(struct inode *inode, struct file * file)
 	for(c=0;c<NAC_STREAM_MAX;c++)
 		if((sc->lock[c].tgid == current->tgid) && (NACMINOR(inode) == NACMINOR_NAC)) {
 			DA((KERN_WARNING "nac%u: PID %d (TGID %d) released stream %d while still locked, resetting\n", sc->unit, current->pid, current->tgid, c));
-#if 0
 			nac_halt(sc); /* XXX How to reset/halt one stream? */
-#endif
 			sc->lock[c].pid = 0;
 			sc->lock[c].tgid = 0;
 		}
+#endif
 #ifndef KERNEL_26X
 	MOD_DEC_USE_COUNT;
 #endif
@@ -513,7 +513,7 @@ nac_init_one(struct pci_dev *dev, const struct pci_device_id *ent)
 	sc->flags |= NACF_ATTACHED;
 	sc->device = dev;
 #ifdef KERNEL_26X
-	dev->dev.driver_data = sc;
+	pci_set_drvdata(dev,sc);
 #else
 	dev->driver_data = sc;
 #endif
@@ -698,7 +698,7 @@ void __devexit
 nac_remove_one(struct pci_dev *dev)
 {
 #ifdef KERNEL_26X
-	nac_softc_t *sc = dev->dev.driver_data;
+	nac_softc_t *sc = (nac_softc_t *) pci_get_drvdata(dev);
 #else
 	nac_softc_t *sc = dev->driver_data;	
 #endif
