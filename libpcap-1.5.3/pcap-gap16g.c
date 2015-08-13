@@ -47,7 +47,7 @@ static const char rcsid[] _U_ =
 #include <pthread.h>
 #include "pcap-gap16g.h"
 #endif
-struct mbuf;		/* Squelch compiler warnings on some platforms for */
+struct mbuf;		  /* Squelch compiler warnings on some platforms for */
 struct rtentry;		/* declarations in <net/if.h> */
 
 #define ATM_CELL_SIZE		52
@@ -58,10 +58,10 @@ struct rtentry;		/* declarations in <net/if.h> */
 /*
  * A header containing additional MTP information.
  */
-#define MTP2_SENT_OFFSET		0	/* 1 byte */
+#define MTP2_SENT_OFFSET		0	      /* 1 byte */
 #define MTP2_ANNEX_A_USED_OFFSET	1	/* 1 byte */
 #define MTP2_LINK_NUMBER_OFFSET		2	/* 2 bytes */
-#define MTP2_HDR_LEN			4	/* length of the header */
+#define MTP2_HDR_LEN			4	        /* length of the header */
 
 #define MTP2_ANNEX_A_NOT_USED      0
 #define MTP2_ANNEX_A_USED          1
@@ -81,7 +81,7 @@ struct rtentry;		/* declarations in <net/if.h> */
 struct sunatm_hdr
 {
 	unsigned char	flags;		/* destination and traffic type */
-	unsigned char	vpi;		/* VPI */
+	unsigned char	vpi;		  /* VPI */
 	unsigned short	vci;		/* VCI */
 };
 
@@ -339,8 +339,6 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 		pcap_header.len = wlen;
 		pcap_header.caplen = rlen;
 		gettimeofday(&pcap_header.ts, NULL);
-		pcap_header.ts.tv_sec = sec;
-		pcap_header.ts.tv_usec = usec;
 		// print_buf( BOTTOM, rlen);
 
 		if (p->snapshot < pcap_header.len)
