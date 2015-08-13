@@ -134,7 +134,6 @@ add_or_find_if(pcap_if_t **curdev_ret, pcap_if_t **alldevs, const char *name,
 	pcap_if_t *curdev, *prevdev, *nextdev;
 	int this_instance;
 	char open_errbuf[PCAP_ERRBUF_SIZE];
-
 	/*
 	 * Is there already an entry in the list for this interface?
 	 */
@@ -608,7 +607,6 @@ pcap_add_if(pcap_if_t **devlist, const char *name, u_int flags,
     const char *description, char *errbuf)
 {
 	pcap_if_t *curdev;
-
 	return (add_or_find_if(&curdev, devlist, name, flags, description,
 	    errbuf));
 }

@@ -2523,12 +2523,10 @@ pcap_platform_finddevs(pcap_if_t **alldevsp, char *errbuf)
 		{ return (-1); }
 
 #ifdef HAVE_GAP16G_API
-
 	if (qnf_platform_finddevs(alldevsp, errbuf) < 0)
 	{
 		return (-1);
 	}
-
 #endif
 	return (0);
 }

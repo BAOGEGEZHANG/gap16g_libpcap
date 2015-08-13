@@ -15,7 +15,6 @@
  *                Stephen Donnelly <support@endace.com>
  */
 
-
 #ifndef lint
 static const char rcsid[] _U_ =
     "@(#) $Header: /tcpdump/master/libpcap/pcap-qnf.c,v 1.21.2.7 2007/06/22 06:43:58 guy Exp $ (LBL)";
@@ -24,6 +23,8 @@ static const char rcsid[] _U_ =
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#ifdef HAVE_GAP16G_API
 
 #include <sys/param.h>			/* optionally get BSD define */
 #include <sys/syscall.h>
@@ -41,14 +42,13 @@ static const char rcsid[] _U_ =
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifdef HAVE_GAP16G_API
+#include <net/if.h>
+#include <pthread.h>
+#include "pcap-gap16g.h"
+#endif
 struct mbuf;		/* Squelch compiler warnings on some platforms for */
 struct rtentry;		/* declarations in <net/if.h> */
-#include <net/if.h>
-
-#include "pcap-gap16g.h"
-
-/* QNF_API Header File */
-#include <pthread.h>
 
 #define ATM_CELL_SIZE		52
 #define ATM_HDR_SIZE		4
@@ -77,9 +77,6 @@ struct rtentry;		/* declarations in <net/if.h> */
 #define CALL_TRACK()
 #endif
 
-
-
-
 /* SunATM pseudo header */
 struct sunatm_hdr
 {
@@ -88,26 +85,9 @@ struct sunatm_hdr
 	unsigned short	vci;		/* VCI */
 };
 
-typedef struct pcap_qnf_node
-{
-	struct pcap_qnf_node *next;
-	pcap_t *p;
-	pid_t pid;
-} pcap_qnf_node_t;
-
-static pcap_qnf_node_t *pcap_qnfs = NULL;		/* List of Pcap_Node */
-static int atexit_handler_installed = 0;
 static const unsigned short endian_test_word = 0x0100;
 
 #define IS_BIGENDIAN() (*((unsigned char *)&endian_test_word))
-
-
-#ifdef NAC_ONLY
-/* Replace qnf function names with pcap equivalent. */
-#define qnf_open_live         pcap_open_live
-#define qnf_platform_finddevs pcap_platform_finddevs
-#endif /* QNF_ONLY */
-
 #define MAX_NAC_PACKET 65536
 
 static unsigned char TempPkt[MAX_NAC_PACKET];
@@ -121,47 +101,64 @@ static void qnf_platform_close(pcap_t *p);
 
 
 /*  Management Data */
-int qnf_fd ;			        //Card fd
-int SIGNAL_INSTALLED ;		//Flag of Install signal
-int MSU_COMFIG;			      //Flag of MSU config
-int shutdownInProcess;		//Flag of accept Inttrupt signal
-int entry ;
-pid_t process ;
+int shutdownInProcess;
+
 
 
 /*
+* name:  print_buf
+* par : bottom:start memory pointer len:length of space
+* ret : no
+* description: print buffer
+*/
+void print_buf(const char *bottom, uint64_t len)
+{
+	printf("[%s,%d]print_buf function\n", __func__, __LINE__);
+	uint64_t loop;
+
+	for (loop = 0; loop < len; loop++)
+	{
+		if (loop % 16 == 0)
+			{ printf("\n"); }
+
+		printf("[%x]", bottom[loop]);
+	}
+}
+
+/*
 * name: qnf_stream_close
+* par: p:handle of interface
 * ret : no
 * description: global stop card streat (tx&&rx), release memory
 */
-
 static void qnf_stream_close(pcap_t *p)
 {
 	CALL_TRACK() ;
 
-	if (nac_stop_stream(p->fd, p->md.qnf_stream) < 0)
+	if (nac_stop_stream(p->fd, p->md.rx_stream) < 0)
 		{ fprintf(stderr, "qnf_stop_stream: %s\n", strerror(errno)); }
 
-	p->md.start = 0;
+	p->md.rx_start = 0;
 
-	if (nac_detach_stream(p->fd, p->md.qnf_stream) < 0)
+	if (nac_detach_stream(p->fd, p->md.rx_stream) < 0)
 		{ fprintf(stderr, "qnf_detach_stream: %s\n", strerror(errno)); }
 
-	p->md.attach = 0;
+	p->md.rx_attach = 0;
 
-	if (nac_tx_stop_stream(p->fd, p->md.qnf_stream + NUM_STREAM, COPY_FWD) < 0)
+	if (nac_tx_stop_stream(p->fd, p->md.tx_stream , COPY_FWD) < 0)
 	{
-		printf("[%s,%d]Unable to stop tx_stream %d\n",  __func__, __LINE__, p->md.qnf_stream + NUM_STREAM);
+		printf("[%s,%d]Unable to stop tx_stream %d\n",  __func__, __LINE__, p->md.tx_stream);
 	}
 
-	if (nac_tx_detach_stream(p->fd, p->md.qnf_stream + NUM_STREAM, COPY_FWD) < 0)
+	if (nac_tx_detach_stream(p->fd, p->md.tx_stream, COPY_FWD) < 0)
 	{
-		printf("[%s,%d]Unable to detach tx_stream %d\n", __func__, __LINE__, p->md.qnf_stream + NUM_STREAM);
+		printf("[%s,%d]Unable to detach tx_stream %d\n", __func__, __LINE__, p->md.tx_stream);
 	}
 }
 
 /*
 * name: qnf_platform_close
+* par : p:handle of interface
 * ret : no
 * description: default system close the pcap_t
 */
@@ -169,9 +166,14 @@ void qnf_platform_close(pcap_t *p)
 {
 	CALL_TRACK() ;
 	qnf_stream_close(p);
-	qnf_fd = 0;
 }
 
+/*
+* name: atext_handler
+* par : signum: signal
+* ret : no
+* description: set var_shutdownInProcess
+*/
 static void atexit_handler(int signum)
 {
 	shutdownInProcess = 1;
@@ -180,6 +182,7 @@ static void atexit_handler(int signum)
 
 /*
 * name: qnf_card_config
+* par : handle of interface
 * ret: suc 0 , failed -1
 * description: global config card
 */
@@ -189,7 +192,7 @@ static  int qnf_card_config(pcap_t *p)
 	signal(SIGINT , atexit_handler);
 	signal(SIGTERM, atexit_handler);
 
-	if (nac_inline_msu_configure(qnf_fd, NUM_STREAM, COPY_FWD) < 0)
+	if (nac_inline_msu_configure(p->fd, NUM_STREAM, COPY_FWD) < 0)
 	{
 		printf("[%s,%d]nac_inlien_msu_configure failed\n", __func__, __LINE__);
 		return (-1);
@@ -200,6 +203,7 @@ static  int qnf_card_config(pcap_t *p)
 
 /*
 *	name: qnf_stream_config
+* par: handle of interface
 * ret: success 0, failed -1
 * description: configure stream tx & rx stream
 */
@@ -210,78 +214,80 @@ static int qnf_stream_config(pcap_t *p)
 	int ret ;
 
 	/* config rx_stream */
-	if (nac_attach_stream(p->fd, p->md.qnf_stream, 0, 0) < 0)
+	if (nac_attach_stream(p->fd, p->md.rx_stream, 0, 0) < 0)
 	{
 		snprintf(ebuf, PCAP_ERRBUF_SIZE, "qnf_attach_stream : %s",  pcap_strerror(errno));
 		goto rx_attach_fail;
 	}
 
-	p->md.attach = 1;
+	p->md.rx_attach = 1;
 
-	if (nac_set_stream_poll(p->fd, p->md.qnf_stream, p->md.mindata, &(p->md.maxwait), &(p->md.poll)) < 0)
+	if (nac_set_stream_poll(p->fd, p->md.rx_stream, p->md.mindata, &(p->md.maxwait), &(p->md.poll)) < 0)
 	{
 		snprintf(ebuf, PCAP_ERRBUF_SIZE, "qnf_set_stream_poll: %s\n", pcap_strerror(errno));
 		goto rx_attach_fail;
 	}
 
-	printf("p->fd:%d\tp->md.qnf_stream:%d\n", p->fd, p->md.qnf_stream);
+	printf("p->fd:%d\tp->md.rx_stream:%d\n", p->fd, p->md.rx_stream);
 
-	if (nac_start_stream(p->fd, p->md.qnf_stream) < 0)
+	if (nac_start_stream(p->fd, p->md.rx_stream) < 0)
 	{
 		snprintf(ebuf, PCAP_ERRBUF_SIZE, "qnf_start_stream : %s\n",  pcap_strerror(errno));
 		goto rx_attach_fail;
 	}
 
-	p->md.start = 1;
+	p->md.rx_start = 1;
 
 	/* config tx_stream */
-	if (nac_tx_attach_stream(p->fd, p->md.qnf_stream + NUM_STREAM, COPY_FWD, 0))
+	if (nac_tx_attach_stream(p->fd, p->md.tx_stream, COPY_FWD, 0))
 	{
 		printf("[%s,%d]nac_tx_attach_stream is failed\n", __func__, __LINE__);
 		goto tx_attach_fail;
 	}
 
-	if (nac_tx_set_stream_poll(p->fd, p->md.qnf_stream + NUM_STREAM, p->md.mindata, &(p->md.maxwait), &(p->md.poll), COPY_FWD) < 0)
+	p->md.tx_attach = 1;
+
+	if (nac_tx_set_stream_poll(p->fd, p->md.tx_stream , p->md.mindata, &(p->md.maxwait), &(p->md.poll), COPY_FWD) < 0)
 	{
 		printf("[%s,%d]nac_tx_set_stream_poll is failed", __func__, __LINE__);
 		goto tx_attach_fail;
 	}
 
-	if (nac_tx_start_stream(p->fd, (p->md.qnf_stream + NUM_STREAM), COPY_FWD) < 0)
+	if (nac_tx_start_stream(p->fd, (p->md.tx_stream), COPY_FWD) < 0)
 	{
 		printf("[%s,%d]nac_tx_start_stream is failed\n", __func__, __LINE__);
 		goto tx_attach_fail;
 	}
 
+	p->md.tx_start = 1;
 	return 0;
 tx_attach_fail:
 
-	if (nac_tx_detach_stream(p->fd, p->md.qnf_stream + NUM_STREAM, COPY_FWD) < 0)
+	if (nac_tx_detach_stream(p->fd, p->md.tx_stream , COPY_FWD) < 0)
 	{
 		printf("[%s,%d]nac_tx_detach_stream is failed\n", __func__, __LINE__);
 	}
 
+	p->md.tx_attach = 0;
 rx_attach_fail:
 
-	if (nac_detach_stream(p->fd, p->md.qnf_stream) < 0)
+	if (nac_detach_stream(p->fd, p->md.rx_stream) < 0)
 	{
 		fprintf(stderr, "qnf_detach_stream: %s\n", strerror(errno));
 	}
 
-	p->md.attach = 0;
+	p->md.rx_attach = 0;
 	return (-1);
 }
 
 
-
 /*
- *  Read at most max_packets from the capture stream and call the callback
- *  for each of them. Returns the number of packets handled, -1 if an
- *  error occured, or -2 if we were told to break out of the loop.
- */
-/*  hfy
-  * qnf_get_next_record return one packet each time, so we don't loop
- */
+* name: qnf_read
+* par : p: handle of interface ; cnt : number of wanted capture ;
+        callback: deal function to deal each packet ; user: user_arg
+* ret : num of capture
+* description: main function to get packet
+*/
 
 static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 {
@@ -304,7 +310,7 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 
 	do
 	{
-		TOP = nac_advance_stream(p->fd, p->md.qnf_stream, (uint8_t * *)&BOTTOM);
+		TOP = nac_advance_stream(p->fd, p->md.rx_stream, (uint8_t * *)&BOTTOM);
 
 		if (TOP == NULL)
 		{
@@ -326,27 +332,22 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 		wlen = ntohs(erf_ptr->wlen);
 		rlen = ntohs(erf_ptr->rlen);
 		/* Calculate the time of card */
-		sec = ntohl(erf_ptr->ts[0]);
-		ts = ntohl(erf_ptr->ts[1]);
-		ts = ts * 1000 * 1000;
-		ts += (ts & 80000000ULL) << 1;
-		usec = ts >> 32;
-
-		if (usec > 1000000)
-		{
-			sec++;
-			usec -= 1000000;
-		}
 
 		if ((TOP - BOTTOM) < rlen)
 			{ break; }
 
 		pcap_header.len = wlen;
 		pcap_header.caplen = rlen;
+		gettimeofday(&pcap_header.ts, NULL);
 		pcap_header.ts.tv_sec = sec;
 		pcap_header.ts.tv_usec = usec;
+		// print_buf( BOTTOM, rlen);
 
-		if ((p->fcode.bf_insns == NULL) || (bpf_filter(p->fcode.bf_insns, (BOTTOM + NAC_RECORD_LEN), pcap_header.len, pcap_header.caplen)))
+		if (p->snapshot < pcap_header.len)
+		{
+			/* Don't do anything */
+		}
+		else if ((p->fcode.bf_insns == NULL) || (bpf_filter(p->fcode.bf_insns, (BOTTOM + NAC_RECORD_LEN), pcap_header.len, pcap_header.caplen)))
 		{
 			p->md.stat.ps_recv++;
 			callback(user, &pcap_header, (BOTTOM + NAC_RECORD_LEN));
@@ -366,22 +367,10 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 
 /*
 * name: qnf_inject
+* par: p:handle of interface; buf: start pointer of raw packet; size : length of raw packet
 * ret : returns the number of bytes written on success and -1 on failure.
 * description: send packet
 */
-void print_buf(const char *bottom, uint64_t len)
-{
-	printf("[%s,%d]print_buf function\n", __func__, __LINE__);
-	uint64_t loop;
-
-	for (loop = 0; loop < len; loop++)
-	{
-		if (loop % 16 == 0)
-			{ printf("\n"); }
-
-		printf("[%c]", bottom[loop]);
-	}
-}
 static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 {
 	CALL_TRACK();
@@ -412,8 +401,8 @@ static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 	pkt_hdr.wlen = htons(size);
 	memcpy(packet, &pkt_hdr, sizeof(pkt_hdr));  /* erf_header 16Bytes*/
 	memcpy(packet + NAC_RECORD_LEN, buf, size);
-	print_buf(packet , packet_len);
-	cp_org = nac_tx_get_stream_space(p->fd, p->md.qnf_stream + NUM_STREAM, packet_len);
+	//print_buf(packet , packet_len);
+	cp_org = nac_tx_get_stream_space(p->fd, p->md.tx_stream, packet_len);
 
 	if (NULL == cp_org)
 	{
@@ -423,7 +412,7 @@ static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 
 	memcpy(cp_org, packet, packet_len);
 
-	if (NULL == nac_tx_stream_commit_bytes(p->fd, p->md.qnf_stream + NUM_STREAM, packet_len))
+	if (NULL == nac_tx_stream_commit_bytes(p->fd, p->md.tx_stream , packet_len))
 	{
 		printf("[%s,%d]nac_tx_stream_commit_bytes is failed\n", __func__, __LINE__);
 		goto fail;
@@ -437,23 +426,15 @@ fail:
 }
 
 
-
+/*
+* name: qnf_active
+* par : handle of interface
+* ret : success 0
+* description: active interface
+*/
 static int qnf_active(pcap_t *p)
 {
-	/*Nothing need to do*/
-	return 0;
-}
-
-static int qnf_parse_name(const char *source, int *major, int *second)
-{
-	char buff[32] = {0x00};
-	char *pointer = NULL;
-	char stream_index ;
-	strncpy(buff, source, sizeof(char) * 32);
-	pointer = strtok(buff, "_");
-	*major = pointer[strlen(pointer) - 1] - '0';
-	strncpy(&stream_index, strtok(NULL, "_"), 1);
-	*second = stream_index - '0';
+	p->activated = 1;
 	return 0;
 }
 
@@ -496,7 +477,7 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 
 	if (handle == NULL)
 	{
-		snprintf(ebuf, PCAP_ERRBUF_SIZE, "malloc %s: %s", device, pcap_strerror(errno));
+		printf("[%s,%d]malloc failed\n", __func__, __LINE__);
 		goto fail;
 	}
 
@@ -504,15 +485,11 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 
 	/* Management data  */
 	/* get drv fd */
-	if (qnf_fd == 0)
-	{
-		if ((handle->fd = nac_open(full_cardname)) < 0)
-		{
-			snprintf(ebuf, PCAP_ERRBUF_SIZE, "qnf_open %s: %s", device, pcap_strerror(errno));
-			goto fail;
-		}
 
-		qnf_fd = handle->fd;
+	if ((handle->fd = nac_open(full_cardname)) < 0)
+	{
+		printf("[%s,%d]nac_open device failed,card_name:%s\n", __func__, __LINE__, full_cardname);
+		goto fail;
 	}
 
 	/* CAPTURE_LENGTH */
@@ -523,8 +500,7 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 	/*
 	 * "select()" and "poll()" don't work on qnf device descriptors.
 	 */
-	handle->fd 		= qnf_fd;
-	handle->selectable_fd   = qnf_fd;
+	handle->selectable_fd   = handle->fd;
 	handle->read_op 	= qnf_read;
 	handle->inject_op 	= qnf_inject;
 	handle->setfilter_op 	= qnf_setfilter;
@@ -537,8 +513,10 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 	handle->oneshot_callback = pcap_oneshot;
 	handle->swapped = 0;
 	handle->opt.promisc = 1;
+	handle->opt.source = NULL;
 	handle->activate_op 	= qnf_active;
-	handle->md.qnf_stream 	= stream_index;
+	handle->md.rx_stream 	= 0;
+	handle->md.tx_stream = 0 + NUM_STREAM;
 	handle->md.mindata 		= MIN_BUFFER_SIZE;
 	handle->activated 		= 1;
 	handle->md.maxwait.tv_sec 	= 0;
@@ -547,6 +525,7 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 	handle->md.poll.tv_usec 	= 50;
 	handle->md.qnf_mem_top = NULL;
 	handle->md.qnf_mem_bottom = NULL;
+	handle->activated = 1;  /* is actived when open_live */
 	strcpy(handle->md.name, device);
 
 	/*Configure card on the first time */
@@ -562,7 +541,7 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 		goto fail;
 	}
 
-	return handle;
+	return (handle);
 	/*
 	 * Get rid of any link-layer type list we allocated.
 	 */
@@ -587,7 +566,7 @@ int 	qnf_platform_finddevs(pcap_if_t **alldevsp, char *errbuf)
 {
 	CALL_TRACK() ;
 	char virtualname[20] ;
-	sprintf(virtualname, "NAC0");
+	sprintf(virtualname, "nac0");
 	pcap_add_if(alldevsp, virtualname, 0, virtualname, errbuf);
 	return 0;
 }
@@ -656,7 +635,7 @@ static int qnf_setnonblock(pcap_t *p, int nonblock, char *errbuf)
 		poll.tv_sec = 0;
 		poll.tv_usec = 1;
 
-		if (nac_set_stream_poll(p->fd, p->md.qnf_stream, mindata, &maxwait, &poll) < 0)
+		if (nac_set_stream_poll(p->fd, p->md.rx_stream, mindata, &maxwait, &poll) < 0)
 		{
 			snprintf(errbuf, PCAP_ERRBUF_SIZE, "qnf_set_stream_poll: %s\n", pcap_strerror(errno));
 			return -1;
@@ -666,11 +645,24 @@ static int qnf_setnonblock(pcap_t *p, int nonblock, char *errbuf)
 	return (0);
 }
 
+/*
+* name: qnf_get_datalink
+* par : handle of interface
+* ret : linktype of handle
+* description: return linktype of handle
+*/
 static int qnf_get_datalink(pcap_t *p)
 {
 	return p->linktype;
 }
 
+
+/*
+* name: qnf_get_stats
+* par :handle of interface ; ps : stat of interface
+* ret : success 0
+* description: return stat of interface
+*/
 static int
 qnf_get_stats(pcap_t *p, struct pcap_stat *ps)
 {
@@ -680,3 +672,5 @@ qnf_get_stats(pcap_t *p, struct pcap_stat *ps)
 	*ps = p->md.stat;
 	return 0;
 }
+
+#endif

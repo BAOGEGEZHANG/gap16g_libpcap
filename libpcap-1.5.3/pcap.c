@@ -109,6 +109,10 @@ static const char rcsid[] _U_ =
 #include "pcap-dbus.h"
 #endif
 
+#ifdef HAVE_GAP16G_API
+#include "pcap-gap16g.h"
+#endif
+
 int
 pcap_not_initialized(pcap_t *pcap _U_)
 {
@@ -802,9 +806,10 @@ pcap_open_live(const char *source, int snaplen, int promisc, int to_ms, char *er
 #ifdef HAVE_GAP16G_API
 
 	if ((source[0] == 'n') && (source[1] == 'a') && (source[2] == 'c') && (strlen(source) == 4))
-		{ return qnf_open_live(source, snaplen, promisc, to_ms, errbuf); }
-	else
-		{ return (NULL); }
+		{ p =  qnf_open_live(source, snaplen, promisc, to_ms, errbuf); 
+      printf ("[%s,%d]p:%x p->opt.source:%x\n",__func__, __LINE__, p, p->opt.source);
+      return p;
+  }
 
 #endif
 	p = pcap_create(source, errbuf);
@@ -1997,7 +2002,6 @@ pcap_close(pcap_t *p)
 {
 	if (p->opt.source != NULL)
 		{ free(p->opt.source); }
-
 	p->cleanup_op(p);
 	free(p);
 }
