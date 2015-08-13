@@ -667,6 +667,7 @@ qnf_get_stats(pcap_t *p, struct pcap_stat *ps)
 	/* This needs to be filled out correctly.  Hopefully a qnfapi call will
 		 provide all necessary information.
 	*/
+	p->md.stat.ps_drop = nac_get_drop_cnt( p->fd, p->md.rx_stream);
 	*ps = p->md.stat;
 	return 0;
 }

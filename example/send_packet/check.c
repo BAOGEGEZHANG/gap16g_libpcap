@@ -35,7 +35,24 @@ int main(void)
 	printf ("open card successful\n");
 
 //	pcap_loop( device, 1, deal_packet, NULL );
-	uint8_t packet[32] = "hello,world";
+	uint8_t packet[128] ;
+	packet[0] = 3;
+	packet[1] = 3;
+	packet[2] = 3;
+	packet[3] = 3;
+	packet[4] = 3;
+	packet[5] = 3;
+
+	packet[6] = 4;
+	packet[7] = 4;
+	packet[8] = 4;
+	packet[9] = 4;
+	packet[10] = 4;
+	packet[11] = 4;
+	
+
+
+
 	pcap_sendpacket( device, packet, sizeof(packet));
 
 
