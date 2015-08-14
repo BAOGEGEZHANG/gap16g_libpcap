@@ -512,6 +512,8 @@ qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebu
 	handle->swapped = 0;
 	handle->opt.promisc = 1;
 	handle->opt.source = NULL;
+	handle->opt.tstamp_precision = PCAP_TSTAMP_PRECISION_MICRO;
+	handle->opt.tstamp_type = PCAP_TSTAMP_HOST_HIPREC;
 	handle->activate_op 	= qnf_active;
 	handle->md.rx_stream 	= 0;
 	handle->md.tx_stream = 0 + NUM_STREAM;
@@ -667,7 +669,7 @@ qnf_get_stats(pcap_t *p, struct pcap_stat *ps)
 	/* This needs to be filled out correctly.  Hopefully a qnfapi call will
 		 provide all necessary information.
 	*/
-	p->md.stat.ps_drop = nac_get_drop_cnt( p->fd, p->md.rx_stream);
+	p->md.stat.ps_drop = nac_get_drop_cnt(p->fd, p->md.rx_stream);
 	*ps = p->md.stat;
 	return 0;
 }
