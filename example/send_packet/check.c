@@ -15,6 +15,7 @@ uint8_t packet_hex[]={
 	0x72,0x00,0x00,0x1c,0x00,0x01
 };
 
+int shutdownInProcess = 0;
 
 void print_buf(const char *bottom, uint64_t len)
 {
@@ -36,11 +37,19 @@ void deal_packet( char *argc, const struct pcap_pkthdr *pcap_hdr, const char *bu
 		
 }
 
+void getsig(int signum)
+{
+	shutdownInProcess = 1;
+}
+
 int main(void)
 {
 	uint8_t ebuf[1024];
 	uint8_t packet_buff[1518] = {0x00};
 	pcap_t *device;
+
+
+	signal(SIGINT, getsig );
 	device = pcap_open_live( "nac0", 1518, 1, 0, ebuf);
 	if( NULL == device )
 	{
@@ -49,35 +58,11 @@ int main(void)
 	}
 	printf ("open card successful\n");
 
-	int fd = open( "single.pcap", O_RDONLY);
-	if ( fd < 3){
-		printf ("[%s,%d]open file failed\n", __func__, __LINE__);
-		goto fail;	
+	while( !shutdownInProcess )
+	{
+		pcap_sendpacket( device, packet_hex, sizeof(packet_hex));
+		usleep(500000);
 	}
-	printf ("fd:%d\n", fd);
-
-	if ( (off_t)-1 == lseek( fd, 24, SEEK_SET) ){
-		printf ("[%s,%d]lseek failed\n", __func__, __LINE__);
-		close(fd);
-		goto fail;
-	}
-	
-	ssize_t read_cnt = read( fd, packet_buff, sizeof(packet_buff));
-	if ( -1 == read_cnt ){
-		printf ("[%s,%d]read failed\n",__func__, __LINE__);
-		close(fd);
-		goto fail;
-	}	
-	printf ("read_cnt:%d\n", read_cnt);
-	struct pcap_pkthdr *pkthdr = ( struct pcap_pkthdr*)packet_buff;
-	uint32_t caplen = ntohl(pkthdr->len);
-	uint8_t *spoint = packet_buff + sizeof(struct pcap_pkthdr);
-	printf ("caplen:%lu\n",caplen);
-
-	pcap_sendpacket( device, packet_hex, sizeof(packet_hex));
-
-	close(fd);
-	fd = 0;
 
 fail:
 	pcap_close(device);

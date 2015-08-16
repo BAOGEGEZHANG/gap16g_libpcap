@@ -115,30 +115,7 @@ extern "C" {
 	typedef void	(*cleanup_op_t)(pcap_t *);
 
 
-#ifdef HAVE_GAP16G_API
-	typedef struct md
-	{
-		unsigned char name[20];
-		int rx_stream;
-		int tx_stream;
 
-		int rx_start;
-		int rx_attach;
-		int tx_start;
-		int tx_attach;
-
-		unsigned char *qnf_mem_top;
-		unsigned char *qnf_mem_bottom;
-
-		struct pcap_stat stat;
-		int use_bpf;			/* use kernel filter*/
-		unsigned int mindata;
-#ifndef WIN32
-		struct timeval maxwait;
-		struct timeval poll;
-#endif
-	} md_t;
-#endif
 
 
 
@@ -202,9 +179,7 @@ extern "C" {
 		int oldstyle;		/* if we're opening with pcap_open_live() */
 
 		struct pcap_opt opt;
-#ifdef HAVE_GAP16G_API
-		struct md md;
-#endif
+
 
 		/*
 		 * Place holder for pcap_next().

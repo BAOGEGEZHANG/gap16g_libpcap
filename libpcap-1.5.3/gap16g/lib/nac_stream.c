@@ -512,7 +512,7 @@ nac_inline_msu_configure(int nacfd, int num_stream,int flags)
         printf("copy mode bufsize %dMB\n",buf_size >> 20);
     }
     printf("Capture stop.\n");
-    capture_stop(nacfd);
+   // capture_stop(nacfd);
 //  reg_write(nacfd,RX_TIMEOUT,0x30d40); // initial timeout value of receive  dma engine to 1ms (clock period 200MHz)
     printf("TX stream config.\n");
     /*configure  DMA for the RX streams*/

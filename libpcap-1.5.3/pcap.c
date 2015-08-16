@@ -455,7 +455,9 @@ pcap_create(const char *source, char *errbuf)
 			return (p);
 		}
 	}
-
+#ifdef HAVE_GAP16G_API
+  return (qnf_create( source, errbuf));
+#endif
 	/*
 	 * OK, try it as a regular network interface.
 	 */
@@ -471,6 +473,9 @@ initialize_ops(pcap_t *p)
 	 * an activated pcap_t to point to a routine that returns
 	 * a "this isn't activated" error.
 	 */
+	 #ifdef HAVE_GAP16G_API
+    return ;
+   #endif
 	p->read_op = (read_op_t)pcap_not_initialized;
 	p->inject_op = (inject_op_t)pcap_not_initialized;
 	p->setfilter_op = (setfilter_op_t)pcap_not_initialized;
