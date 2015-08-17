@@ -20,11 +20,6 @@ int main(void)
 	dlt = 	pcap_datalink_name_to_val( pcap_datalink_val_to_name(dlt));
 	printf ("dlt: %d\n", dlt);
 
-	pcap_list_datalinks( p, int **);
-
-
-
-
 	pcap_close(device);
 	printf ("close card successful\n");
 }

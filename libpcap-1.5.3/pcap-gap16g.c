@@ -166,25 +166,25 @@ fail:
 static void qnf_stream_close(pcap_t *p)
 {
 	CALL_TRACK() ;
-
-	if (nac_stop_stream(p->fd, p->md.rx_stream) < 0)
+  pcap_qnf_t *handle = (pcap_qnf_t *)p->priv;
+	if (nac_stop_stream(p->fd, handle->rx_stream) < 0)
 		{ fprintf(stderr, "qnf_stop_stream: %s\n", strerror(errno)); }
 
-	p->md.rx_start = 0;
+	handle->rx_start = 0;
 
-	if (nac_detach_stream(p->fd, p->md.rx_stream) < 0)
+	if (nac_detach_stream(p->fd, handle->rx_stream) < 0)
 		{ fprintf(stderr, "qnf_detach_stream: %s\n", strerror(errno)); }
 
-	p->md.rx_attach = 0;
+	handle->rx_attach = 0;
 
-	if (nac_tx_stop_stream(p->fd, p->md.tx_stream , COPY_FWD) < 0)
+	if (nac_tx_stop_stream(p->fd, handle->tx_stream , COPY_FWD) < 0)
 	{
-		printf("[%s,%d]Unable to stop tx_stream %d\n",  __func__, __LINE__, p->md.tx_stream);
+		printf("[%s,%d]Unable to stop tx_stream %d\n",  __func__, __LINE__, handle->tx_stream);
 	}
 
-	if (nac_tx_detach_stream(p->fd, p->md.tx_stream, COPY_FWD) < 0)
+	if (nac_tx_detach_stream(p->fd, handle->tx_stream, COPY_FWD) < 0)
 	{
-		printf("[%s,%d]Unable to detach tx_stream %d\n", __func__, __LINE__, p->md.tx_stream);
+		printf("[%s,%d]Unable to detach tx_stream %d\n", __func__, __LINE__, handle->tx_stream);
 	}
 }
 
@@ -331,8 +331,9 @@ rx_attach_fail:
 static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 {
 	static struct pcap_pkthdr	pcap_header;
-#define TOP		(p->md.qnf_mem_top)
-#define BOTTOM		(p->md.qnf_mem_bottom)
+  pcap_qnf_t *handle = (pcap_qnf_t *)p->priv;
+#define TOP		(handle->qnf_mem_top)
+#define BOTTOM		(handle->qnf_mem_bottom)
 	uint64_t processed = 0;
 	erf_record_t *erf_ptr = NULL;
 	int	wlen = 0;
@@ -349,7 +350,7 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 
 	do
 	{
-		TOP = nac_advance_stream(p->fd, p->md.rx_stream, (uint8_t * *)&BOTTOM);
+		TOP = nac_advance_stream(p->fd, handle->rx_stream, (uint8_t * *)&BOTTOM);
 
 		if (TOP == NULL)
 		{
@@ -386,7 +387,7 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 		}
 		else if ((p->fcode.bf_insns == NULL) || (bpf_filter(p->fcode.bf_insns, (BOTTOM + NAC_RECORD_LEN), pcap_header.len, pcap_header.caplen)))
 		{
-			p->md.stat.ps_recv++;
+			handle->stat.ps_recv++;
 			callback(user, &pcap_header, (BOTTOM + NAC_RECORD_LEN));
 			processed++;
 		}
@@ -411,6 +412,7 @@ static int qnf_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 {
 	CALL_TRACK();
+  pcap_qnf_t *handle = (pcap_qnf_t *)p->priv;
 	uint8_t *cp_org;
 	uint8_t *packet;
 	uint32_t  packet_len;
@@ -439,7 +441,7 @@ static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 	memcpy(packet, &pkt_hdr, sizeof(pkt_hdr));  /* erf_header 16Bytes*/
 	memcpy(packet + NAC_RECORD_LEN, buf, size);
 	//print_buf(packet , packet_len);
-	cp_org = nac_tx_get_stream_space(p->fd, p->md.tx_stream, packet_len);
+	cp_org = nac_tx_get_stream_space(p->fd, handle->tx_stream, packet_len);
 
 	if (NULL == cp_org)
 	{
@@ -449,7 +451,7 @@ static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 
 	memcpy(cp_org, packet, packet_len);
 
-	if (NULL == nac_tx_stream_commit_bytes(p->fd, p->md.tx_stream , packet_len))
+	if (NULL == nac_tx_stream_commit_bytes(p->fd, handle->tx_stream , packet_len))
 	{
 		printf("[%s,%d]nac_tx_stream_commit_bytes is failed\n", __func__, __LINE__);
 		goto fail;
@@ -624,7 +626,7 @@ fail:
 }
 
 pcap_t *
-qnf_create(const char *source, char *errbuf)
+qnf_create(const char *source, char *errbuf, int* is_ours)
 {
 	pcap_t *p;
 
@@ -640,7 +642,7 @@ qnf_create(const char *source, char *errbuf)
 	{
 		return NULL;
 	}
-
+  *is_ours = 1;
 	p->activate_op = qnf_active;
 	return p;
 }

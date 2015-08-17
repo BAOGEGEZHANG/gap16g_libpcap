@@ -245,9 +245,6 @@ static const char rcsid[] _U_ =
 #include <linux/ethtool.h>
 #endif
 
-#ifdef HAVE_GAP16G_API
-#include "pcap-gap16g.h"
-#endif
 
 #ifndef HAVE_SOCKLEN_T
 typedef int		socklen_t;
@@ -2522,12 +2519,6 @@ pcap_platform_finddevs(pcap_if_t **alldevsp, char *errbuf)
 	if (pcap_add_if(alldevsp, "any", 0, any_descr, errbuf) < 0)
 		{ return (-1); }
 
-#ifdef HAVE_GAP16G_API
-	if (qnf_platform_finddevs(alldevsp, errbuf) < 0)
-	{
-		return (-1);
-	}
-#endif
 	return (0);
 }
 

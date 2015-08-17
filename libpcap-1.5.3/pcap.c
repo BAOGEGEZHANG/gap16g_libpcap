@@ -350,6 +350,9 @@ struct capture_source_type
 #ifdef PCAP_SUPPORT_DBUS
 	{ dbus_findalldevs, dbus_create },
 #endif
+#ifdef HAVE_GAP16G_API
+  { qnf_platform_finddevs, qnf_create},
+#endif
 	{ NULL, NULL }
 };
 
@@ -455,9 +458,6 @@ pcap_create(const char *source, char *errbuf)
 			return (p);
 		}
 	}
-#ifdef HAVE_GAP16G_API
-  return (qnf_create( source, errbuf));
-#endif
 	/*
 	 * OK, try it as a regular network interface.
 	 */
@@ -473,9 +473,6 @@ initialize_ops(pcap_t *p)
 	 * an activated pcap_t to point to a routine that returns
 	 * a "this isn't activated" error.
 	 */
-	 #ifdef HAVE_GAP16G_API
-    return ;
-   #endif
 	p->read_op = (read_op_t)pcap_not_initialized;
 	p->inject_op = (inject_op_t)pcap_not_initialized;
 	p->setfilter_op = (setfilter_op_t)pcap_not_initialized;
@@ -808,15 +805,6 @@ pcap_open_live(const char *source, int snaplen, int promisc, int to_ms, char *er
 {
 	pcap_t *p;
 	int status;
-#ifdef HAVE_GAP16G_API
-
-	if ((source[0] == 'n') && (source[1] == 'a') && (source[2] == 'c') && (strlen(source) == 4))
-		{ p =  qnf_open_live(source, snaplen, promisc, to_ms, errbuf); 
-      printf ("[%s,%d]p:%x p->opt.source:%x\n",__func__, __LINE__, p, p->opt.source);
-      return p;
-  }
-
-#endif
 	p = pcap_create(source, errbuf);
 
 	if (p == NULL)

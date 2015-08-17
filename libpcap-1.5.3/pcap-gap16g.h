@@ -19,7 +19,7 @@
 #include "gap16g/include/nactypes.h"
 
 pcap_t *qnf_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebuf);
-pcap_t *qnf_create(const char *source, char *errbuf);
+pcap_t *qnf_create(const char *source, char *errbuf, int* is_ours);
 int qnf_platform_finddevs(pcap_if_t **devlistp, char *errbuf);
 
 

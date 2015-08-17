@@ -33,9 +33,8 @@ int main(void)
 		return -1;
 	}
 	printf ("open card successful\n");
-
-	pcap_loop( device, 1, deal_packet, NULL );
-
+	pcap_loop( device, -1, deal_packet, NULL );
+fail:
 	pcap_close(device);
 	printf ("close card successful\n");
 }

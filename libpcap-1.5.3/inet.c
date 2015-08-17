@@ -738,6 +738,9 @@ pcap_lookupnet(device, netp, maskp, errbuf)
 #ifdef HAVE_SNF_API
 	    || strstr(device, "snf") != NULL
 #endif
+#ifdef HAVE_GAP16G_API
+	    || strstr(device, "nac") != NULL
+#endif
 	    ) {
 		*netp = *maskp = 0;
 		return 0;
