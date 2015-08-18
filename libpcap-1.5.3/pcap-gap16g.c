@@ -64,7 +64,7 @@ struct rtentry;		/* declarations in <net/if.h> */
 #define CALL_TRACK()
 #endif
 
-
+#define SEND_PACKET_UNIT 1600
 #define MAX_NAC_PACKET 65536
 
 static unsigned char TempPkt[MAX_NAC_PACKET];
@@ -424,7 +424,7 @@ static int qnf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 		size = 1514;
 	}
 
-	packet_len = (size / 16 + 1) * 16;
+	packet_len = SEND_PACKET_UNIT;
 	printf("packet_len:%u size:%d\n", packet_len, size);
 	packet = malloc(packet_len);
 

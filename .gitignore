@@ -34,7 +34,7 @@
 #define by me
 *.3pcap
 *.in
-*.docx
+
 *.diff
-*vsd
+
 *.st

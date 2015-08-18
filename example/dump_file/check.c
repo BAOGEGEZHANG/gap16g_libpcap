@@ -2,17 +2,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#if 0
-void pcap_loop_deal(u_char *, const struct pcap_pkthdr *,
-			     const u_char *)
-{
-	pcap_dumper_t *device_dumper = (pcap_dumper_t *)device_dumper;
-	pcap_dump(u_char *, const struct pcap_pkthdr *, const u_char *);
-
-
-}
-
-#endif
 
 
 

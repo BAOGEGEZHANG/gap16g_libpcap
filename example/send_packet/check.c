@@ -57,10 +57,6 @@ int main(void)
 		return -1;
 	}
 	printf ("open card successful\n");
-	if (	pcap_activate( device) < 0 ){
-    printf ("[%s,%d]actived failed\n", __func__, __LINE__);
-    goto fail;
-  }
 
 	while( !shutdownInProcess )
 	{
